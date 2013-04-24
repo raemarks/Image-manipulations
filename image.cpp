@@ -326,13 +326,13 @@ string Image::decode_string(void) const {
 			}
 			check.push_back(c); //pushing back each new char we obtain so we can compare to start_code
 		}
-		if (pixel_index >= (size_x * size_y - 1)) //there isn't room for even one char!
+		if (pixel_index >= (size_x * size_y - 1)) //there isn't room for even one char. No message.
 		{
 			return "Error: no encoded message.";
 		}
 		if (check == start_code)
 		{
-			break; //we found the start code!
+			break; //we found the start code, and are at the correct pixel index to begin decoding.
 		}
 		pixel_index -= 24; //decrement by three bytes to check the next potential set of four bytes. 
 		check.clear(); //clear check so we can check the next four bytes. 
@@ -365,83 +365,43 @@ string Image::decode_string(void) const {
 } // decode_string()
 
 const Image &Image::operator=(Image const &image) { //overloaded assignmnent operator
-	if (&image != this) {
-		if (image.type == "P5") {//first must deal with the types being potentially different. First deal with .pgm files
-			if (type != "P5") { //it is a ppm file, we want .pgm
-				delete [] rrPtr; //get rid of rgb arrays. No need.
-				delete [] ggPtr;
-				delete [] bbPtr;
-				size_x = image.size_x;
-				size_y = image.size_y;
-				grayPtr = new unsigned char[size_x * size_y]; //allocate space
-				for (int i = 0; i < (size_x*size_y); i++) {
-					grayPtr[i] = image.grayPtr[i]; //make the deep copy
-				}
-			}
-			else if ((size_x*size_y) != (image.size_x*image.size_y)) { //wrong size array.
-				delete [] grayPtr; //must reallocate because it is the wrong size.
-				size_x = image.size_x;
-				size_y = image.size_y;
-				grayPtr = new unsigned char[size_x * size_y]; //allocate space
-				for (int i = 0; i < (size_x*size_y); i++) {
-					grayPtr[i] = image.grayPtr[i]; //deep copy
-				}
-			}
-			else { //the type isn't changing and the total size isn't changing, so just reassign.
-				size_x = image.size_x; //the overall size might be the same, but we don't know if the dimensions are the same. I could check for this, but it would make for more lines of code.
-				size_y = image.size_y;
-				for (int i = 0; i < (size_x * size_y); i++) {			
-					grayPtr[i] = image.grayPtr[i]; //deep copy
-				}
-			}
+	if (grayPtr) { //start from scratch. Delete gray pixel data if it exists.
+		delete [] grayPtr;
+		grayPtr = 0; //set to NULL
+	}
+	if (rrPtr) { //it must be a .ppm file. Delete all three rgb value arrays.
+		delete [] rrPtr;
+		delete [] ggPtr;
+		delete [] bbPtr;
+		rrPtr = 0; //set to null
+		ggPtr = 0;
+		bbPtr = 0;
+	}
+	type = image.type; //copy memory that was not dynamically allocated
+	filename = image.filename;
+	rrThreshold = image.rrThreshold;
+	ggThreshold = image.ggThreshold;
+	bbThreshold = image.bbThreshold;
+	size_x = image.size_x;
+	size_y = image.size_y;
+	max = image.max;
+	if (type == "P5") { //.pgm file, so need to copy grayPtr array
+		grayPtr = new unsigned char [size_x*size_y]; //allocate space
+		for (int i = 0; i < (size_x*size_y); i++) {
+			grayPtr[i] = image.grayPtr[i];
 		}
-		else {//else we want a .ppm file
-			if (type != "P6") {//we have a .pgm file, but we want a .ppm file
-				size_x = image.size_x;
-				size_y = image.size_y;
-				delete [] grayPtr; //don't need this
-				rrPtr = new unsigned char[size_x*size_y]; //allocate memory
-				ggPtr = new unsigned char[size_x*size_y];
-				bbPtr = new unsigned char[size_x*size_y];
-				for (int i = 0; i < (size_x*size_y); i++) {
-					rrPtr[i] = image.rrPtr[i];				 //making the deep copy
-					ggPtr[i] = image.ggPtr[i];
-					bbPtr[i] = image.bbPtr[i];	
-				}
-			}
-			else if ((size_x*size_y) != (image.size_x*image.size_y)) {//wrong size of array
-				size_x = image.size_x;
-				size_y = image.size_y;
-				delete [] rrPtr; //not enough space, so reallocate.
-				delete [] ggPtr;
-				delete [] bbPtr;
-				rrPtr = new unsigned char[size_x*size_y];		
-				ggPtr = new unsigned char[size_x*size_y];
-				bbPtr = new unsigned char[size_x*size_y];
-				for (int i = 0; i < (size_x*size_y); i++) { //copy to allocated memory
-					rrPtr[i] = image.rrPtr[i];
-					ggPtr[i] = image.ggPtr[i];
-					bbPtr[i] = image.bbPtr[i];
-				}
-			}
-			else {//all we have to do is copy it because the size is correct
-				size_x = image.size_x; //make sure the dimensions are good
-				size_y = image.size_y;
-				for (int i = 0; i < (size_x*size_y); i++) { //copy over.
-					rrPtr[i] = image.rrPtr[i];
-					ggPtr[i] = image.ggPtr[i];
-					bbPtr[i] = image.bbPtr[i];
-				}
-			}
-		}	
-		type = image.type; //finish the copying that hasn't already been done.
-		filename = image.filename;
-		max = image.max;
-		rrThreshold = image.rrThreshold;
-		ggThreshold = image.ggThreshold;
-		bbThreshold = image.bbThreshold;
-	}	
-	return *this; //return 
+	}
+	else { //type must be P6, and so it is a .ppm file and we need rrPtr, ggPtr, bbPtr.
+		rrPtr = new unsigned char [size_x*size_y];
+		ggPtr = new unsigned char [size_x*size_y];
+		bbPtr = new unsigned char [size_x*size_y];
+		for (int i = 0; i < (size_x*size_y); i++) {
+			rrPtr[i] = image.rrPtr[i];
+			ggPtr[i] = image.ggPtr[i];
+			bbPtr[i] = image.bbPtr[i];
+		}
+	}
+	return *this;
 }
 
 Image Image::operator+(Image const &image){ //overloaded addition operator. Adding two images together with greenscreening
